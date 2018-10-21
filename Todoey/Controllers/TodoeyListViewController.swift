@@ -9,15 +9,16 @@
 import UIKit
 
 class TodoeyListViewController: UITableViewController {
-    //MARK: - User DATA
-    var itemArray = ["First", "Second", "Third"]
-    let defaults = UserDefaults.standard
+    //MARK: - Initailization
+    var itemArray = [Item]()
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    let encoder = PropertyListEncoder()
+    let decoder = PropertyListDecoder()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        if let items = defaults.array(forKey: "toDoListArray") as? [String] {
-            itemArray = items
-        }
+        
+        loadItems()
     }
     
     // MARK: - TableView datasource methods
@@ -26,21 +27,17 @@ class TodoeyListViewController: UITableViewController {
     }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "TodoeyItemCell", for: indexPath)
-        
-        cell.textLabel?.text = itemArray[indexPath.row]
+        let item = itemArray[indexPath.row]
+        cell.textLabel?.text = item.title
+        cell.accessoryType = item.done ? .checkmark : .none
         return cell
     }
     
     // MARK: - TableView delegate methods
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark{
-            tableView.cellForRow(at: indexPath)?.accessoryType = .none
-        }
-        else{
-            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
-        }
         
-        
+        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+        saveItems()
         tableView.deselectRow(at: indexPath, animated: true)
     }
     
@@ -51,10 +48,12 @@ class TodoeyListViewController: UITableViewController {
         let alert = UIAlertController.init(title: "Add new ToDo Item", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction.init(title: "Add Item", style: .default) { (action) in
-         self.itemArray.append(textField.text!)
-            self.defaults.set(self.itemArray, forKey: "todoListArray")
-            self.tableView.reloadData()
-        }
+            let newItem = Item()
+            newItem.title = textField.text!
+            self.itemArray.append(newItem)
+            
+            self.saveItems()
+                    }
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Create New Item"
             textField = alertTextField
@@ -65,7 +64,32 @@ class TodoeyListViewController: UITableViewController {
     }
     
     
+    //MARK: - Func to save items in plist
+    func saveItems(){
+        
+        do{
+            let data = try encoder.encode(itemArray)
+            try data.write(to: dataFilePath!)
+            
+        }
+        catch{
+            print("Error in encoding item array , \(error)")
+        }
+      tableView.reloadData()
+
+    }
     
-    
+    //MARK: - Load the data from the plist file
+    func loadItems() {
+        if let data = try? Data(contentsOf: dataFilePath!) {
+           do{
+            itemArray = try decoder.decode([Item].self, from: data)
+            }
+            catch {
+                print("Error while decoding the data \(error)")
+            }
+        }
+        
+    }
 }
 
