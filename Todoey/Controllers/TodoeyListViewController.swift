@@ -7,18 +7,18 @@
 //
 
 import UIKit
-
+import CoreData
 class TodoeyListViewController: UITableViewController {
     //MARK: - Initailization
     var itemArray = [Item]()
     let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
     let encoder = PropertyListEncoder()
     let decoder = PropertyListDecoder()
-    
+     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        loadItems()
+      loadItems()
     }
     
     // MARK: - TableView datasource methods
@@ -48,8 +48,12 @@ class TodoeyListViewController: UITableViewController {
         let alert = UIAlertController.init(title: "Add new ToDo Item", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction.init(title: "Add Item", style: .default) { (action) in
-            let newItem = Item()
+           
+            
+            
+            let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false
             self.itemArray.append(newItem)
             
             self.saveItems()
@@ -68,28 +72,54 @@ class TodoeyListViewController: UITableViewController {
     func saveItems(){
         
         do{
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFilePath!)
+        try context.save()
             
         }
         catch{
-            print("Error in encoding item array , \(error)")
+            print("Error in context , \(error)")
         }
       tableView.reloadData()
 
     }
     
     //MARK: - Load the data from the plist file
-    func loadItems() {
-        if let data = try? Data(contentsOf: dataFilePath!) {
-           do{
-            itemArray = try decoder.decode([Item].self, from: data)
-            }
-            catch {
-                print("Error while decoding the data \(error)")
-            }
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest()) {
+        
+        do{
+           itemArray = try context.fetch(request)
+        } catch{
+            print("Error in fetching data \(error)")
         }
+
+    }
+  
+    //MARK: -Delete items
+//    func deleteItems(){
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)
+   // saveItems()
+//    }
+    
+   
+}
+//MARK: - Search Button Functions
+extension TodoeyListViewController: UISearchBarDelegate{
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request: NSFetchRequest<Item> = Item.fetchRequest()
+ request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+      request.sortDescriptors = [NSSortDescriptor.init(key: "title", ascending: true)]
+        
+        loadItems(with: request)
         
     }
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0{
+            loadItems()
+           
+            DispatchQueue.main.async {
+                 searchBar.resignFirstResponder()
+            }
+        }
+    }
+    
 }
-
